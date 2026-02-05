@@ -7,28 +7,29 @@ export default defineConfig(({ mode }) => {
   
   return {
     base: './',
-
     server: {
       port: 3000,
       host: '0.0.0.0',
     },
-
     build: {
       outDir: 'dist',
       sourcemap: true,
+      commonjsOptions: {
+        include: [/node_modules/],
+      }
     },
-
     plugins: [react()],
-
     define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY),
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY)
     },
-
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
+    },
+    optimizeDeps: {
+      include: ['react-is', 'recharts']
     }
   };
 });
