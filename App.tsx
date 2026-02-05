@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
@@ -18,6 +17,7 @@ import { TaskFormModal } from './components/TaskFormModal';
 import { LevelUpModal } from './components/LevelUpModal';
 import { SmartNotificationManager } from './components/SmartNotificationManager';
 import { App as CapacitorApp } from '@capacitor/app';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { MotivationService } from './services/motivationService';
 
 // Helper to get current day name in English to match DayOfWeek type
@@ -42,6 +42,61 @@ const AppContent: React.FC = () => {
   // Initialize with current actual day
   const [modalDefaultDay, setModalDefaultDay] = useState<DayOfWeek>(getCurrentDayOfWeek());
 
+  // --- 1. إعداد الإشعارات وقنوات الأندرويد ---
+  useEffect(() => {
+    const initNotifications = async () => {
+      try {
+        // طلب الإذن من المستخدم
+        const permission = await LocalNotifications.requestPermissions();
+        
+        if (permission.display === 'granted') {
+          // إنشاء القناة (ضروري جداً لظهور الإشعارات في أندرويد)
+          await LocalNotifications.createChannel({
+            id: 'messages',
+            name: 'تنبيهات المهام',
+            description: 'إشعارات النظام والمهام اليومية',
+            importance: 5,
+            visibility: 1,
+            vibration: true
+          });
+          console.log('Notification System Initialized');
+        }
+      } catch (error) {
+        console.error('Error initializing notifications:', error);
+      }
+    };
+
+    initNotifications();
+  }, []);
+
+  // --- 2. معالج زر الرجوع الفعلي للهاتف ---
+  useEffect(() => {
+    let listener: any;
+    
+    const setupListener = async () => {
+        listener = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+            if (isModalOpen) {
+                setIsModalOpen(false);
+            } else if (currentStackScreen !== 'ROOT') {
+                handleBack();
+            } else if (activeTab !== AppTab.DASHBOARD) {
+                goHome();
+            } else {
+                // الخروج من التطبيق إذا كان المستخدم في الشاشة الرئيسية
+                CapacitorApp.exitApp();
+            }
+        });
+    };
+
+    setupListener();
+
+    return () => {
+        if (listener) {
+            listener.remove();
+        }
+    };
+  }, [currentStackScreen, activeTab, isModalOpen]);
+
   const navigateToPillar = (pillar: PillarType) => {
     setActiveTab(AppTab.PILLARS); 
     setCurrentStackScreen(pillar);
@@ -56,33 +111,6 @@ const AppContent: React.FC = () => {
     setActiveTab(AppTab.DASHBOARD);
     setCurrentStackScreen('ROOT');
   };
-
-  // Hardware Back Button Handler
-  useEffect(() => {
-    let listener: any;
-    
-    const setupListener = async () => {
-        listener = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-            if (isModalOpen) {
-                setIsModalOpen(false);
-            } else if (currentStackScreen !== 'ROOT') {
-                handleBack();
-            } else if (activeTab !== AppTab.DASHBOARD) {
-                goHome();
-            } else {
-                CapacitorApp.exitApp();
-            }
-        });
-    };
-
-    setupListener();
-
-    return () => {
-        if (listener) {
-            listener.remove();
-        }
-    };
-  }, [currentStackScreen, activeTab, isModalOpen]);
 
   // Daily Motivation Check
   useEffect(() => {
@@ -100,7 +128,6 @@ const AppContent: React.FC = () => {
   const openAddTask = (pillar?: PillarType, day?: DayOfWeek) => {
     setEditingTask(null);
     setModalDefaultPillar(pillar || (currentStackScreen !== 'ROOT' ? (currentStackScreen as PillarType) : 'Learning'));
-    // Automatically set the day to TODAY if no specific day is passed
     setModalDefaultDay(day || getCurrentDayOfWeek());
     setIsModalOpen(true);
   };
@@ -119,7 +146,6 @@ const AppContent: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  // If no profile exists, show Sign Up
   if (!playerProfile) {
     return (
         <>
@@ -130,7 +156,6 @@ const AppContent: React.FC = () => {
   }
 
   const renderContent = () => {
-    // If we are in a specific pillar screen (Stack Navigation)
     if (currentStackScreen !== 'ROOT') {
         const props = { 
             onBack: handleBack, 
@@ -147,7 +172,6 @@ const AppContent: React.FC = () => {
         }
     }
 
-    // Default Tab Navigation
     switch (activeTab) {
       case AppTab.DASHBOARD: 
         return <Dashboard 
@@ -180,7 +204,6 @@ const AppContent: React.FC = () => {
     <div className="min-h-[100dvh] bg-game-black text-white flex justify-center font-sans overflow-hidden">
       <div className="w-full max-w-md h-[100dvh] flex flex-col relative bg-game-black shadow-2xl overflow-hidden">
         
-        {/* Header (Only show if not in stack screen) */}
         {currentStackScreen === 'ROOT' && (
             <header className="p-4 flex justify-between items-center border-b border-neutral-800 bg-game-black/80 backdrop-blur-md sticky top-0 z-20">
                 <div className="flex items-center gap-3">
@@ -189,7 +212,6 @@ const AppContent: React.FC = () => {
                             <ArrowRight size={24} />
                         </button>
                     )}
-                    {/* Stylized Logo for 'Solo Task' */}
                     <div className="flex flex-col">
                         <h1 className="text-2xl font-black tracking-tighter leading-none italic select-none">
                             <span className="text-white drop-shadow-md">SOLO</span>
@@ -209,12 +231,10 @@ const AppContent: React.FC = () => {
             </header>
         )}
 
-        {/* Main Content - No scroll here, children handle it */}
         <main className="flex-1 overflow-hidden relative">
             {renderContent()}
         </main>
 
-        {/* Global Task Modal */}
         <TaskFormModal 
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
@@ -224,7 +244,6 @@ const AppContent: React.FC = () => {
             defaultDay={modalDefaultDay}
         />
         
-        {/* Managers & Overlays */}
         <SmartNotificationManager />
         <ToastSystem />
         <LevelUpModal />
