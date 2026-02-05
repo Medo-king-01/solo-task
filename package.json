@@ -1,0 +1,35 @@
+{
+  "name": "solo-task",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "android:setup": "npm run build && npx cap sync",
+    "android:open": "npx cap open android",
+    "android:run": "npx cap run android",
+    "android:sync": "npx cap sync",
+    "assets": "npx cap assets"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/local-notifications": "^6.0.0",
+    "@capacitor/splash-screen": "^6.0.0",
+    "lucide-react": "^0.563.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "recharts": "^3.7.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^2.0.0",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
