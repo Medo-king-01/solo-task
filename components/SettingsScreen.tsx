@@ -1,13 +1,14 @@
-
 import React, { useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { useGame } from '../context/GameContext';
 import { useToast } from '../context/ToastContext';
 import { Globe, Palette, AlertTriangle, Check, RotateCcw, Bell, Lock, User, Volume2, Smartphone, Monitor, ChevronRight, Edit2, Shield, Activity, Save, X } from 'lucide-react';
 import { ThemeColor } from '../types';
+// استيراد مكتبة الإشعارات الخاصة بكاباسيتور
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 export const SettingsScreen: React.FC = () => {
-  const { language, themeColor, darkMode, notificationsEnabled, soundEnabled, hapticsEnabled, updateSettings, toggleNotifications, t } = useSettings();
+  const { language, themeColor, darkMode, notificationsEnabled, soundEnabled, hapticsEnabled, updateSettings, t } = useSettings();
   const { playerProfile, updateProfile, resetProgress } = useGame();
   const { addToast } = useToast();
 
@@ -19,27 +20,49 @@ export const SettingsScreen: React.FC = () => {
       weight: playerProfile?.weight || 0
   });
 
-  const themes: { id: ThemeColor; color: string; label: string }[] = [
-    { id: 'red-black', color: '#ef4444', label: 'Red & Black' },
-    { id: 'blue-dark', color: '#3b82f6', label: 'Blue & Dark' },
-    { id: 'green-matrix', color: '#00f763', label: 'Matrix Green' },
-    { id: 'purple-royal', color: '#d946ef', label: 'Royal Purple' },
-    { id: 'pink-white', color: '#ff4d8d', label: 'Pink & White' },
-  ];
-
+  // --- تحديث دالة الضغط على زر الإشعارات ---
   const handleNotificationClick = async () => {
-    const targetState = !notificationsEnabled;
-    const success = await toggleNotifications();
-    
-    if (success) {
-        if (targetState) {
-            new Notification("Solo Level", { body: "System Online" });
-            addToast("تم تفعيل الإشعارات", 'success');
-        } else {
-            addToast("تم إيقاف الإشعارات", 'info');
+    try {
+        // إذا كانت الإشعارات مفعلة ونريد إغلاقها
+        if (notificationsEnabled) {
+            updateSettings({ notificationsEnabled: false });
+            addToast(language === 'ar' ? "تم إيقاف الإشعارات" : "Notifications Disabled", 'info');
+            return;
         }
-    } else {
-        addToast("تم رفض الإذن من المتصفح", 'error');
+
+        // إذا كانت معطلة ونريد تفعيلها (نطلب الإذن من أندرويد)
+        const permission = await LocalNotifications.requestPermissions();
+        
+        if (permission.display === 'granted') {
+            // إنشاء القناة لضمان العمل على أندرويد
+            await LocalNotifications.createChannel({
+                id: 'messages',
+                name: 'System Notifications',
+                importance: 5,
+                visibility: 1,
+                vibration: true
+            });
+
+            // تحديث الإعدادات في Context
+            updateSettings({ notificationsEnabled: true });
+            
+            // إرسال إشعار تجريبي باستخدام Capacitor بدلاً من Web Notification
+            await LocalNotifications.schedule({
+                notifications: [{
+                    title: "Solo Level",
+                    body: "System Online",
+                    id: 1,
+                    channelId: 'messages'
+                }]
+            });
+
+            addToast(language === 'ar' ? "تم تفعيل الإشعارات بنجاح" : "Notifications Enabled", 'success');
+        } else {
+            addToast(language === 'ar' ? "يرجى تفعيل الإذن من إعدادات الهاتف" : "Please enable permission from settings", 'error');
+        }
+    } catch (error) {
+        console.error("Notification Error:", error);
+        addToast("Notification System Error", 'error');
     }
   };
 
@@ -48,8 +71,17 @@ export const SettingsScreen: React.FC = () => {
       setIsEditingProfile(false);
   };
 
+  const themes: { id: ThemeColor; color: string; label: string }[] = [
+    { id: 'red-black', color: '#ef4444', label: 'Red & Black' },
+    { id: 'blue-dark', color: '#3b82f6', label: 'Blue & Dark' },
+    { id: 'green-matrix', color: '#00f763', label: 'Matrix Green' },
+    { id: 'purple-royal', color: '#d946ef', label: 'Royal Purple' },
+    { id: 'pink-white', color: '#ff4d8d', label: 'Pink & White' },
+  ];
+
   return (
     <div className="h-full overflow-y-auto no-scrollbar pb-24 animate-fade-in bg-game-black">
+      {/* باقي الكود الخاص بـ UI كما هو تماماً دون تغيير */}
       
       {/* Header */}
       <div className="sticky top-0 z-20 bg-game-black/90 backdrop-blur-md p-4 border-b border-neutral-800 flex items-center gap-3">
@@ -58,7 +90,6 @@ export const SettingsScreen: React.FC = () => {
       </div>
 
       <div className="p-4 space-y-6">
-
         {/* 1. Profile Section */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden relative">
             <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -158,7 +189,7 @@ export const SettingsScreen: React.FC = () => {
             </div>
 
             <div className="divide-y divide-neutral-800">
-                {/* Notifications */}
+                {/* Notifications Button */}
                 <button 
                     onClick={handleNotificationClick}
                     className="w-full p-4 flex items-center justify-between hover:bg-neutral-800/50 transition-colors"
@@ -177,7 +208,7 @@ export const SettingsScreen: React.FC = () => {
                     </div>
                 </button>
 
-                 {/* Sound */}
+                 {/* باقي الأزرار (الصوت، الهزاز، اللغة) كما هي... */}
                  <button 
                     onClick={() => updateSettings({ soundEnabled: !soundEnabled })}
                     className="w-full p-4 flex items-center justify-between hover:bg-neutral-800/50 transition-colors"
@@ -193,7 +224,6 @@ export const SettingsScreen: React.FC = () => {
                     </div>
                 </button>
 
-                {/* Haptics */}
                  <button 
                     onClick={() => updateSettings({ hapticsEnabled: !hapticsEnabled })}
                     className="w-full p-4 flex items-center justify-between hover:bg-neutral-800/50 transition-colors"
@@ -209,7 +239,6 @@ export const SettingsScreen: React.FC = () => {
                     </div>
                 </button>
 
-                {/* Language */}
                 <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-neutral-800 text-neutral-400">
@@ -235,22 +264,18 @@ export const SettingsScreen: React.FC = () => {
             </div>
         </div>
 
-        {/* 3. Visuals */}
+        {/* باقي الثيمات ومنطقة الخطر كما هي... */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden p-4">
              <div className="flex items-center gap-2 mb-4 text-purple-500">
                 <Palette size={18} />
                 <h3 className="font-bold text-sm uppercase tracking-widest">{t('theme')}</h3>
             </div>
-            
             <div className="grid grid-cols-2 gap-3">
                 {themes.map(theme => (
                     <button
                         key={theme.id}
                         onClick={() => updateSettings({ themeColor: theme.id })}
-                        className={`
-                            relative h-16 rounded-xl overflow-hidden transition-all border-2
-                            ${themeColor === theme.id ? 'border-white scale-105 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'}
-                        `}
+                        className={`relative h-16 rounded-xl overflow-hidden transition-all border-2 ${themeColor === theme.id ? 'border-white scale-105 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'}`}
                         style={{ backgroundColor: theme.color }}
                     >
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-2">
@@ -262,7 +287,6 @@ export const SettingsScreen: React.FC = () => {
             </div>
         </div>
 
-        {/* 4. Danger Zone */}
          <div className="bg-red-950/20 border border-red-900/50 rounded-2xl overflow-hidden p-4">
              <div className="flex items-center gap-2 mb-4 text-red-500">
                 <AlertTriangle size={18} />
@@ -280,7 +304,6 @@ export const SettingsScreen: React.FC = () => {
          <div className="text-center">
             <p className="text-[10px] text-neutral-600 font-mono">SYSTEM VERSION 1.0.5</p>
          </div>
-
       </div>
     </div>
   );
